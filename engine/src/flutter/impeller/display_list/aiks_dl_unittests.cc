@@ -438,6 +438,54 @@ TEST_P(AiksTest, CanDrawPoints) {
   ASSERT_TRUE(OpenPlaygroundHere(builder.Build()));
 }
 
+// Line and polygon mode draw all of their segments as one draw. Overlapping
+// translucent segments must still blend on top of each other, as they do when
+// each segment is its own draw.
+TEST_P(AiksTest, CanDrawOverlappingTranslucentLinesAndPolygons) {
+  std::vector<DlPoint> points = {
+      {0, 0},      //
+      {100, 100},  //
+      {100, 0},    //
+      {0, 100},    //
+      {0, 50},     //
+      {100, 50},   //
+      {50, 50},    //
+      {50, 50},    //
+      {20, 80},    //
+  };
+
+  DlPaint background;
+  background.setColor(DlColor::kBlack());
+
+  DisplayListBuilder builder(DlRect::MakeSize(GetWindowSize()));
+  builder.DrawPaint(background);
+  builder.Translate(100, 100);
+
+  for (DlStrokeCap cap :
+       {DlStrokeCap::kButt, DlStrokeCap::kRound, DlStrokeCap::kSquare}) {
+    DlPaint paint;
+    paint.setColor(DlColor::kYellow().withAlpha(128));
+    paint.setStrokeCap(cap);
+    paint.setStrokeWidth(20);
+
+    builder.Save();
+    builder.DrawPoints(DlPointMode::kLines, points.size(), points.data(),
+                       paint);
+    builder.Translate(0, 200);
+    builder.DrawPoints(DlPointMode::kPolygon, points.size(), points.data(),
+                       paint);
+    // Thinner than a pixel: drawn one pixel wide with reduced opacity.
+    builder.Translate(0, 200);
+    paint.setStrokeWidth(0.5);
+    builder.DrawPoints(DlPointMode::kLines, points.size(), points.data(),
+                       paint);
+    builder.Restore();
+    builder.Translate(200, 0);
+  }
+
+  ASSERT_TRUE(OpenPlaygroundHere(builder.Build()));
+}
+
 TEST_P(AiksTest, CanDrawPointsWithTextureMap) {
   auto texture = DlImageImpeller::Make(
       CreateTextureForFixture("table_mountain_nx.png",

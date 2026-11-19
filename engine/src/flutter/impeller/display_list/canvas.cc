@@ -51,6 +51,7 @@
 #include "impeller/entity/geometry/ellipse_geometry.h"
 #include "impeller/entity/geometry/fill_path_geometry.h"
 #include "impeller/entity/geometry/geometry.h"
+#include "impeller/entity/geometry/line_field_geometry.h"
 #include "impeller/entity/geometry/line_geometry.h"
 #include "impeller/entity/geometry/point_field_geometry.h"
 #include "impeller/entity/geometry/rect_geometry.h"
@@ -1033,6 +1034,46 @@ void Canvas::DrawLine(const Point& p0,
 
   AddRenderEntityWithFiltersToCurrentPass(entity, geometry.get(), paint,
                                           reuse_depth);
+}
+
+void Canvas::DrawLines(const Point points[],
+                       uint32_t count,
+                       bool connected,
+                       const Paint& paint) {
+  const uint32_t segment_count =
+      connected ? (count > 0 ? count - 1 : 0) : count / 2;
+  if (segment_count == 0) {
+    return;
+  }
+
+  // All of the segments can be sent to the GPU as a single draw when doing
+  // so cannot be told apart from drawing them one at a time: the paint must
+  // be rendered directly into the current pass with a blend mode that does
+  // not need to read back the destination, and the segments must not need
+  // the special handling that |DrawLine| gives to hairlines and to SDF
+  // rendering.
+  const bool can_batch = segment_count > 1 && paint.stroke.width > 0.0f &&
+                         paint.blend_mode <= Entity::kLastPipelineBlendMode &&
+                         !paint.color_filter && !paint.invert_colors &&
+                         !paint.image_filter &&
+                         !paint.mask_blur_descriptor.has_value() &&
+                         !renderer_.GetContext()->GetFlags().use_sdfs;
+
+  if (!can_batch) {
+    const uint32_t step = connected ? 1 : 2;
+    for (uint32_t i = 0; i < segment_count; i++) {
+      DrawLine(points[i * step], points[i * step + 1], paint,
+               /*reuse_depth=*/i > 0);
+    }
+    return;
+  }
+
+  Entity entity;
+  entity.SetTransform(GetCurrentTransform());
+  entity.SetBlendMode(paint.blend_mode);
+
+  LineFieldGeometry geom(points, count, connected, paint.stroke);
+  AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
 }
 
 void Canvas::DrawDashedLine(const Point& p0,

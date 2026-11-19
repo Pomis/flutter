@@ -201,6 +201,17 @@ class Canvas {
                 const Paint& paint,
                 bool reuse_depth = false);
 
+  /// @brief Draws several line segments that share one paint.
+  ///
+  ///        If `connected` is false, each pair of points is a segment. If it
+  ///        is true, each point is connected to the next one. The result is
+  ///        the same as calling |DrawLine| once per segment, but the
+  ///        segments are rendered with a single draw call when possible.
+  void DrawLines(const Point points[],
+                 uint32_t count,
+                 bool connected,
+                 const Paint& paint);
+
   void DrawDashedLine(const Point& p0,
                       const Point& p1,
                       Scalar on_length,

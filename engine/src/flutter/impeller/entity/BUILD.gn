@@ -228,6 +228,8 @@ impeller_component("entity") {
     "geometry/fill_path_geometry.h",
     "geometry/geometry.cc",
     "geometry/geometry.h",
+    "geometry/line_field_geometry.cc",
+    "geometry/line_field_geometry.h",
     "geometry/line_geometry.cc",
     "geometry/line_geometry.h",
     "geometry/point_field_geometry.cc",

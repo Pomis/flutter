@@ -40,6 +40,7 @@
 #include "impeller/entity/entity.h"
 #include "impeller/entity/entity_playground.h"
 #include "impeller/entity/geometry/geometry.h"
+#include "impeller/entity/geometry/line_field_geometry.h"
 #include "impeller/entity/geometry/point_field_geometry.h"
 #include "impeller/entity/geometry/round_superellipse_geometry.h"
 #include "impeller/entity/geometry/stroke_path_geometry.h"
@@ -2101,6 +2102,49 @@ TEST_P(EntityTest, PointFieldGeometryCoverage) {
   ASSERT_EQ(geometry.GetCoverage(Matrix()), Rect::MakeLTRB(5, 15, 105, 205));
   ASSERT_EQ(geometry.GetCoverage(Matrix::MakeTranslation({30, 0, 0})),
             Rect::MakeLTRB(35, 15, 135, 205));
+}
+
+TEST_P(EntityTest, LineFieldGeometrySegmentCount) {
+  std::vector<Point> points = {{0, 0}, {10, 0}, {20, 0}, {30, 0}, {40, 0}};
+  StrokeParameters stroke{.width = 2.0f};
+
+  // Pairs of points, ignoring the unpaired trailing point.
+  EXPECT_EQ(LineFieldGeometry(points.data(), 5, /*connected=*/false, stroke)
+                .GetSegmentCount(),
+            2u);
+  // Each point connected to the next.
+  EXPECT_EQ(LineFieldGeometry(points.data(), 5, /*connected=*/true, stroke)
+                .GetSegmentCount(),
+            4u);
+  EXPECT_EQ(LineFieldGeometry(points.data(), 1, /*connected=*/false, stroke)
+                .GetSegmentCount(),
+            0u);
+  EXPECT_EQ(LineFieldGeometry(points.data(), 1, /*connected=*/true, stroke)
+                .GetSegmentCount(),
+            0u);
+  EXPECT_EQ(LineFieldGeometry(points.data(), 0, /*connected=*/true, stroke)
+                .GetSegmentCount(),
+            0u);
+}
+
+TEST_P(EntityTest, LineFieldGeometryCoverage) {
+  std::vector<Point> points = {{10, 20}, {100, 200}, {50, 300}, {60, 5}};
+  StrokeParameters stroke{.width = 10.0f, .cap = Cap::kRound};
+
+  LineFieldGeometry lines(points.data(), 4, /*connected=*/false, stroke);
+  ASSERT_EQ(lines.GetCoverage(Matrix()), Rect::MakeLTRB(5, 0, 105, 305));
+  ASSERT_EQ(lines.GetCoverage(Matrix::MakeTranslation({30, 0, 0})),
+            Rect::MakeLTRB(35, 0, 135, 305));
+
+  // An unpaired trailing point is not part of any segment.
+  LineFieldGeometry unpaired(points.data(), 3, /*connected=*/false, stroke);
+  ASSERT_EQ(unpaired.GetCoverage(Matrix()), Rect::MakeLTRB(5, 15, 105, 205));
+
+  LineFieldGeometry polygon(points.data(), 3, /*connected=*/true, stroke);
+  ASSERT_EQ(polygon.GetCoverage(Matrix()), Rect::MakeLTRB(5, 15, 105, 305));
+
+  LineFieldGeometry empty(points.data(), 1, /*connected=*/true, stroke);
+  ASSERT_FALSE(empty.GetCoverage(Matrix()).has_value());
 }
 
 TEST_P(EntityTest, ColorFilterContentsWithLargeGeometry) {
